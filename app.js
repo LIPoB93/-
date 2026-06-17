@@ -1,5 +1,37 @@
+// ───────────────────────────────────────────────
+// 구글 스프레드시트 연동 설정
+// Apps Script 웹앱 배포 후 받은 URL을 아래 따옴표 안에 붙여넣으세요.
+// 비워두면 기록 전송은 건너뛰고 앱은 정상 동작합니다.
+const SHEET_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyvUVC8QhU_iEcdMaM_o8KiapxWONkzGBQDho6ac8HV5qn-y2UBeEiMTz-kq3bou6iOsQ/exec';
+// ───────────────────────────────────────────────
+
 const screens = [...document.querySelectorAll('.screen')];
-const state = { name: '', docent: '', qIndex: 0 };
+const state = { name: '', docent: '', qIndex: 0, startTime: '', endTime: '' };
+
+// 한국 시간 문자열(YYYY-MM-DD HH:mm:ss)
+function nowString() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+// 시트로 기록 전송 (실패해도 앱 흐름은 막지 않음)
+function sendRecord() {
+  if (!SHEET_ENDPOINT) return;
+  const payload = {
+    name: state.name,
+    docent: state.docent,
+    startTime: state.startTime,
+    endTime: state.endTime
+  };
+  // no-cors: Apps Script 응답을 읽지는 못하지만 전송은 됨
+  fetch(SHEET_ENDPOINT, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload)
+  }).catch(() => {});
+}
 
 const qCards = [
   {
@@ -103,11 +135,12 @@ function navTo(direction) {
   if (target < 0 || target >= SCREEN_ORDER.length) return;
   const next = SCREEN_ORDER[target];
 
-  // 명단 → 다음: 입력 검증
+  // 명단 → 다음: 입력 검증 + 시작 시간 기록
   if (direction === 1 && cur === 'roster') {
     if (!rosterReady()) return;
     state.name = document.getElementById('visitor-name').value.trim();
     state.docent = document.getElementById('docent-select').value;
+    if (!state.startTime) state.startTime = nowString();
   }
   // Q카드 → 완료로 넘어갈 때 요약 채움
   if (direction === 1 && cur === 'qcard') {
@@ -116,6 +149,11 @@ function navTo(direction) {
   }
   // 동선/대기로 진입 시 Q카드 인덱스 초기화
   if (next === 'qcard') { state.qIndex = 0; renderQCard(); }
+  // 완료 화면 도달: 완료 시간 기록 + 시트 전송
+  if (next === 'complete') {
+    state.endTime = nowString();
+    sendRecord();
+  }
   showScreen(next);
 }
 
@@ -139,6 +177,8 @@ function resetTour() {
   state.name = '';
   state.docent = '';
   state.qIndex = 0;
+  state.startTime = '';
+  state.endTime = '';
   document.getElementById('visitor-form').reset();
   document.getElementById('form-error').textContent = '';
   renderQCard();
@@ -156,11 +196,7 @@ document.addEventListener('click', (event) => {
   if (action === 'q-prev' && state.qIndex > 0) { state.qIndex--; renderQCard(); }
   if (action === 'q-next') {
     if (state.qIndex < qCards.length - 1) { state.qIndex++; renderQCard(); }
-    else {
-      document.getElementById('summary-name').textContent = state.name;
-      document.getElementById('summary-docent').textContent = state.docent;
-      showScreen('complete');
-    }
+    else { navTo(1); }
   }
   if (action === 'new-tour') { resetTour(); showScreen('roster'); }
   if (action === 'to-waiting') { resetTour(); showScreen('waiting'); }
@@ -221,6 +257,7 @@ document.getElementById('visitor-form').addEventListener('submit', (event) => {
   error.textContent = '';
   state.name = name;
   state.docent = docent;
+  if (!state.startTime) state.startTime = nowString();
   showScreen('route');
 });
 
