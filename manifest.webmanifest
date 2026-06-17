@@ -1,0 +1,9 @@
+{
+  "name": "숲의 시선 도슨트 Q카드",
+  "short_name": "숲의 시선",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#07111d",
+  "theme_color": "#07111d",
+  "orientation": "portrait"
+}

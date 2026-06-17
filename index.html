@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <meta name="theme-color" content="#07111d" />
+  <title>숲의 시선 · 도슨트 Q카드</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="manifest" href="manifest.webmanifest" />
+</head>
+<body>
+  <main class="app-shell" aria-live="polite">
+    <div class="background" aria-hidden="true"></div>
+    <div class="vignette" aria-hidden="true"></div>
+
+    <button class="nav-arrow nav-prev" type="button" data-action="nav-prev" aria-label="이전 화면">&lt;</button>
+    <button class="nav-arrow nav-next" type="button" data-action="nav-next" aria-label="다음 화면">&gt;</button>
+
+    <section class="screen active" data-screen="waiting" aria-label="대기 화면">
+      <div class="center-stack waiting-stack">
+        <img class="brand-logo brand-logo-large" src="assets/title.png" alt="숲의 시선" />
+        <div class="divider"><span></span><b>✦</b><span></span></div>
+        <button class="primary-button hero-button" type="button" data-action="start">
+          <span class="spark">✦</span><span>시작하기</span>
+        </button>
+        <p class="helper">화면을 터치하여 안내를 시작하세요</p>
+      </div>
+    </section>
+
+    <section class="screen" data-screen="intro" aria-label="전시 소개">
+      <header class="screen-header centered">
+        <img class="brand-logo" src="assets/title.png" alt="숲의 시선" />
+      </header>
+      <div class="section-title">
+        <h1>전시 소개</h1>
+        <div class="divider compact"><span></span><b>✦</b><span></span></div>
+      </div>
+
+      <div class="glass-card intro-card">
+        <p class="intro-text">여기에 전시회 소개 내용이 들어갑니다. 전시의 주제, 작가, 관람 포인트 등을 자유롭게 작성해주세요.</p>
+      </div>
+    </section>
+
+    <section class="screen" data-screen="roster" aria-label="명단 기입">
+      <header class="screen-header centered">
+        <img class="brand-logo" src="assets/title.png" alt="숲의 시선" />
+      </header>
+      <div class="section-title">
+        <div class="divider compact"><span></span><b>✦</b><span></span></div>
+      </div>
+
+      <form class="glass-card form-card" id="visitor-form">
+        <label class="field">
+          <span>이름</span>
+          <input id="visitor-name" name="name" type="text" placeholder="이름을 입력해주세요" autocomplete="off" required />
+        </label>
+        <label class="field">
+          <span>담당 도슨트</span>
+          <select id="docent-select" name="docent" required>
+            <option value="" selected disabled>도슨트를 선택해주세요</option>
+            <option>김도슨트</option>
+            <option>이도슨트</option>
+            <option>박도슨트</option>
+            <option>최도슨트</option>
+          </select>
+        </label>
+        <p class="form-error" id="form-error" role="alert"></p>
+        <button class="primary-button" type="submit"><span class="spark">✦</span><span>다음</span></button>
+      </form>
+    </section>
+
+    <section class="screen route-screen" data-screen="route" aria-label="동선 안내">
+      <header class="screen-header centered">
+        <img class="brand-logo" src="assets/title.png" alt="숲의 시선" />
+      </header>
+      <div class="section-title route-title">
+        <h1>동선 안내</h1>
+        <div class="divider compact"><span></span><b>✦</b><span></span></div>
+      </div>
+
+      <div class="glass-card route-card" aria-label="동선 안내 지도">
+        <svg class="route-map" viewBox="0 0 760 470" role="img" aria-label="왼쪽 아래 한 곳으로 들어와 시계 반대 방향으로 이동한 뒤 같은 곳으로 나가는 동선">
+          <defs>
+            <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+              <feGaussianBlur stdDeviation="4" result="blur" />
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+            <marker id="arrow" markerWidth="12" markerHeight="12" refX="8" refY="4" orient="auto" markerUnits="strokeWidth">
+              <path d="M0,0 L8,4 L0,8 Z" fill="#ffd0d8" />
+            </marker>
+          </defs>
+
+          <!-- 전시장 외곽 벽: 왼쪽 아래에 하나의 출입구 틈 -->
+          <path class="wall-line" d="M115 50 H710 V410 H115 M115 50 V295" />
+          <text class="door-label" x="20" y="405">출입구</text>
+          <path class="door-bracket" d="M92 295 H115 M92 410 H115" />
+
+          <!-- 입장(바깥 레인 y=370)·퇴장(안쪽 레인 y=315). 글자(y≈392)보다 위로 올려 겹치지 않음 -->
+          <!-- 입장: 출입구 → 시계 반대 방향 한 바퀴 → 퇴장 -->
+          <path class="route-line" d="M22 370 H660 V90 H175 V315 H22" />
+
+          <!-- 입·출 방향 화살표(출입구 입구) -->
+          <path class="arrow-line" d="M30 370 H98" marker-end="url(#arrow)" />
+          <path class="arrow-line" d="M112 315 H30" marker-end="url(#arrow)" />
+
+          <!-- 진행 방향 화살표 -->
+          <path class="arrow-line" d="M250 370 H300" marker-end="url(#arrow)" />
+          <path class="arrow-line" d="M520 370 H570" marker-end="url(#arrow)" />
+          <path class="arrow-line" d="M660 290 V230" marker-end="url(#arrow)" />
+          <path class="arrow-line" d="M660 180 V120" marker-end="url(#arrow)" />
+          <path class="arrow-line" d="M520 90 H470" marker-end="url(#arrow)" />
+          <path class="arrow-line" d="M270 90 H220" marker-end="url(#arrow)" />
+          <path class="arrow-line" d="M175 160 V210" marker-end="url(#arrow)" />
+          <path class="arrow-line" d="M175 260 V310" marker-end="url(#arrow)" />
+
+          <text class="route-note" x="380" y="445" text-anchor="middle">출입구로 입장 → 시계 반대 방향 관람 → 같은 출입구로 퇴장</text>
+        </svg>
+      </div>
+      <p class="tap-hint">동선을 확인한 뒤 옆으로 넘겨주세요</p>
+    </section>
+
+    <section class="screen" data-screen="qcard" aria-label="Q카드">
+      <header class="screen-header centered q-header">
+        <img class="brand-logo" src="assets/title.png" alt="숲의 시선" />
+      </header>
+      <div class="q-progress-wrap">
+        <strong id="q-counter">Q카드 1 / 6</strong>
+        <div class="progress-track"><span id="progress-bar"></span></div>
+      </div>
+
+      <article class="glass-card q-card">
+        <div class="q-copy">
+          <section>
+            <h2>작품명</h2>
+            <p class="q-title" id="q-title"></p>
+          </section>
+          <section>
+            <h2>핵심 설명</h2>
+            <p id="q-description"></p>
+          </section>
+          <section>
+            <h2>안내 멘트</h2>
+            <p id="q-script"></p>
+          </section>
+          <section>
+            <h2>관람객 질문</h2>
+            <p id="q-question"></p>
+          </section>
+          <section>
+            <h2>포인트</h2>
+            <p id="q-point"></p>
+          </section>
+        </div>
+        <img class="artwork-preview" src="assets/background.jpg" alt="작품 미리보기" />
+      </article>
+
+      <div class="q-dots" id="q-dots" aria-hidden="true"></div>
+      <div class="q-controls">
+        <button class="secondary-button" type="button" data-action="q-prev">‹ 이전 카드</button>
+        <button class="primary-button compact-button" type="button" data-action="q-next">다음 카드 ›</button>
+      </div>
+    </section>
+
+    <section class="screen" data-screen="complete" aria-label="완료">
+      <div class="center-stack complete-stack">
+        <img class="brand-logo" src="assets/title.png" alt="숲의 시선" />
+        <div class="complete-check">✓</div>
+        <h1>안내가 완료되었습니다</h1>
+        <p class="complete-message">수고하셨습니다.</p>
+
+        <div class="glass-card summary-card">
+          <div><span>관람객</span><strong id="summary-name">-</strong></div>
+          <div><span>담당 도슨트</span><strong id="summary-docent">-</strong></div>
+        </div>
+
+        <button class="primary-button wide-button" type="button" data-action="new-tour">✦ 새 안내 시작</button>
+        <button class="secondary-button wide-button" type="button" data-action="to-waiting">대기 화면으로</button>
+      </div>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
