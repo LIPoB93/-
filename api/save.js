@@ -1,5 +1,5 @@
-const GAS_ENDPOINT = process.env.GAS_ENDPOINT ||
-  'https://script.google.com/macros/s/AKfycbyvUVC8QhU_iEcdMaM_o8KiapxWONkzGBQDho6ac8HV5qn-y2UBeEiMTz-kq3bou6iOsQ/exec';
+const GAS_ENDPOINT =
+  'https://script.google.com/macros/s/AKfycby8s7xKrLcV1lchgUEHBTKZ9V6W0Ja3afA7Ff3QL65VfuMgOQnmiYl5P4ihe2uLqz4aEA/exec';
 
 function json(data, status = 200) {
   return Response.json(data, {
