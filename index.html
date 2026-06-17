@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
   <meta name="theme-color" content="#07111d" />
   <title>숲의 시선 · 도슨트 Q카드</title>
-  <link rel="stylesheet" href="styles.css?v=4" />
+  <link rel="stylesheet" href="styles.css?v=7" />
   <link rel="manifest" href="manifest.webmanifest" />
 </head>
 <body>
@@ -182,7 +182,7 @@
   <script>
     // 이전 배포의 서비스워커 캐시를 제거해 최신 파일이 즉시 적용되도록 합니다.
     (function () {
-      var BUILD = 'forest-qcard-v5';
+      var BUILD = 'forest-qcard-v7';
       try {
         var previous = localStorage.getItem('forest-qcard-build');
         if ('serviceWorker' in navigator) {
@@ -199,6 +199,6 @@
       } catch (e) {}
     })();
   </script>
-  <script src="app.js?v=5" defer onerror="document.getElementById('app-load-error').hidden=false"></script>
+  <script src="app.js?v=7" defer onerror="document.getElementById('app-load-error').hidden=false"></script>
 </body>
 </html>

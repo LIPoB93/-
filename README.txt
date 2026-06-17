@@ -1,12 +1,9 @@
-숲의 시선 · 도슨트 Q카드 v5
+숲의 시선 · 도슨트 Q카드 v7
 
-변경 사항
-- 관람 시작 시간과 완료 시간을 기기에 먼저 저장
-- 전송 실패 시 localStorage에 미전송 기록 보관
-- 다음 접속 또는 인터넷 복구 시 자동 재전송
-- 기록 ID로 구글 시트 중복 저장 방지
-- JSONP로 GAS의 실제 성공 응답 확인
+구조
+- 브라우저: 이름·도슨트·시작 시간·완료 시간을 기기에 먼저 저장
+- /api/save: Vercel 함수가 서버에서 GAS로 전달
+- GAS: 구글 시트 저장 및 기록 ID 중복 방지
+- 전송 실패: 기기에 보관 후 앱 재접속/인터넷 복구 시 자동 재전송
 
-구성
-- GitHub/Vercel: index.html, app.js, styles.css, manifest.webmanifest, service-worker.js, vercel.json, assets 폴더
-- Google Apps Script: GAS_Code.gs 내용 전체 사용
+GitHub에는 api 폴더를 포함한 전체 파일을 올려야 합니다.

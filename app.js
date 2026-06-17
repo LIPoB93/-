@@ -1,9 +1,5 @@
-// ───────────────────────────────────────────────
-// 구글 스프레드시트 연동 설정
-// Apps Script 웹앱 배포 후 받은 URL을 아래 따옴표 안에 붙여넣으세요.
-// 비워두면 기록 전송은 건너뛰고 앱은 정상 동작합니다.
-const SHEET_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyvUVC8QhU_iEcdMaM_o8KiapxWONkzGBQDho6ac8HV5qn-y2UBeEiMTz-kq3bou6iOsQ/exec';
-// ───────────────────────────────────────────────
+// 기록 전송은 같은 Vercel 도메인의 /api/save를 통해 처리합니다.
+
 
 const screens = [...document.querySelectorAll('.screen')];
 const state = {
@@ -146,56 +142,42 @@ function markRecordSynced(recordId) {
   saveStoredRecords(records);
 }
 
-// JSONP는 Vercel과 GAS가 다른 도메인이어도 실제 성공 응답을 확인할 수 있습니다.
-function sendRecord(record) {
-  if (!SHEET_ENDPOINT) {
-    return Promise.reject(new Error('GAS 주소가 설정되지 않았습니다.'));
-  }
+// 브라우저는 같은 Vercel 도메인의 API만 호출합니다.
+// Vercel API가 GAS로 전달하므로 JSONP/CORS 문제를 피할 수 있습니다.
+async function sendRecord(record) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
 
-  return new Promise((resolve, reject) => {
-    const callbackName = `forestQcardCallback_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-    const script = document.createElement('script');
-    let finished = false;
-
-    const cleanup = () => {
-      if (finished) return;
-      finished = true;
-      clearTimeout(timer);
-      script.remove();
-      try { delete window[callbackName]; } catch (error) { window[callbackName] = undefined; }
-    };
-
-    window[callbackName] = (result) => {
-      cleanup();
-      if (result && result.ok) resolve(result);
-      else reject(new Error((result && result.error) || 'GAS 저장 응답이 올바르지 않습니다.'));
-    };
-
-    const params = new URLSearchParams({
-      action: 'save',
-      callback: callbackName,
-      recordId: record.recordId,
-      name: record.name,
-      docent: record.docent,
-      startTime: record.startTime,
-      endTime: record.endTime,
-      _: String(Date.now())
+  try {
+    const response = await fetch('/api/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store',
+      signal: controller.signal,
+      body: JSON.stringify({
+        recordId: record.recordId,
+        name: record.name,
+        docent: record.docent,
+        startTime: record.startTime,
+        endTime: record.endTime
+      })
     });
 
-    script.async = true;
-    script.src = `${SHEET_ENDPOINT}?${params.toString()}`;
-    script.onerror = () => {
-      cleanup();
-      reject(new Error('GAS 연결에 실패했습니다.'));
-    };
+    const result = await response.json().catch(() => null);
 
-    const timer = setTimeout(() => {
-      cleanup();
-      reject(new Error('GAS 응답 시간이 초과되었습니다.'));
-    }, 15000);
+    if (!response.ok || !result || !result.ok) {
+      throw new Error((result && result.error) || `저장 요청 실패 (${response.status})`);
+    }
 
-    document.head.appendChild(script);
-  });
+    return result;
+  } catch (error) {
+    if (error && error.name === 'AbortError') {
+      throw new Error('저장 응답 시간이 초과되었습니다.');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function syncRecord(record) {
