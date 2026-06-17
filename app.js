@@ -1,26 +1,22 @@
-// 기록 전송은 같은 Vercel 도메인의 /api/save를 통해 처리합니다.
-
+// 기록은 기기에 먼저 저장하고, 같은 Vercel 도메인의 /api/save를 통해 시트로 전송합니다.
 
 const screens = [...document.querySelectorAll('.screen')];
 const state = {
   name: '',
   docent: '',
-  qIndex: 0,
   startTime: '',
   endTime: '',
   recordId: '',
   startedAtMs: 0
 };
 
-// 한국 시간 문자열(YYYY-MM-DD HH:mm:ss)
 function nowString() {
   const d = new Date();
   const p = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
-// 기록은 먼저 기기에 저장한 뒤 GAS로 전송합니다.
-// 전송 실패 시 보관되며, 다음 접속 또는 인터넷 복구 시 자동 재전송합니다.
+// 기존 기기의 미전송 기록을 그대로 살리기 위해 저장 키는 유지합니다.
 const STORAGE_KEYS = {
   records: 'forest-qcard-records-v1',
   active: 'forest-qcard-active-v1'
@@ -61,7 +57,6 @@ function getStoredRecords() {
 }
 
 function saveStoredRecords(records) {
-  // 최근 기록 100개만 기기에 유지합니다.
   const sorted = [...records].sort((a, b) => (a.createdAtMs || 0) - (b.createdAtMs || 0));
   return writeJson(STORAGE_KEYS.records, sorted.slice(-MAX_STORED_RECORDS));
 }
@@ -73,20 +68,22 @@ function saveActiveTour() {
     name: state.name,
     docent: state.docent,
     startTime: state.startTime,
-    qIndex: state.qIndex,
     startedAtMs: state.startedAtMs || Date.now()
   });
 }
 
 function clearActiveTour() {
-  try { localStorage.removeItem(STORAGE_KEYS.active); } catch (error) {}
+  try {
+    localStorage.removeItem(STORAGE_KEYS.active);
+  } catch (error) {
+    console.warn('진행 중 기록 삭제 실패:', error);
+  }
 }
 
 function restoreActiveTour() {
   const active = readJson(STORAGE_KEYS.active, null);
   if (!active || !active.name || !active.docent || !active.startTime) return;
 
-  // 너무 오래된 미완료 기록은 다음 관람객에게 이어지지 않도록 폐기합니다.
   const age = Date.now() - Number(active.startedAtMs || 0);
   if (!Number.isFinite(age) || age > 12 * 60 * 60 * 1000) {
     clearActiveTour();
@@ -98,7 +95,6 @@ function restoreActiveTour() {
   state.docent = active.docent;
   state.startTime = active.startTime;
   state.startedAtMs = Number(active.startedAtMs || Date.now());
-  state.qIndex = Math.max(0, Math.min(Number(active.qIndex || 0), TOTAL_CARDS - 1));
 
   document.getElementById('visitor-name').value = state.name;
   document.getElementById('docent-select').value = state.docent;
@@ -118,7 +114,7 @@ function queueCurrentRecord() {
   };
 
   const records = getStoredRecords();
-  const index = records.findIndex(item => item.recordId === record.recordId);
+  const index = records.findIndex((item) => item.recordId === record.recordId);
   if (index >= 0) records[index] = { ...records[index], ...record };
   else records.push(record);
 
@@ -132,7 +128,7 @@ function queueCurrentRecord() {
 
 function markRecordSynced(recordId) {
   const records = getStoredRecords();
-  const index = records.findIndex(item => item.recordId === recordId);
+  const index = records.findIndex((item) => item.recordId === recordId);
   if (index < 0) return;
   records[index] = {
     ...records[index],
@@ -142,8 +138,6 @@ function markRecordSynced(recordId) {
   saveStoredRecords(records);
 }
 
-// 브라우저는 같은 Vercel 도메인의 API만 호출합니다.
-// Vercel API가 GAS로 전달하므로 JSONP/CORS 문제를 피할 수 있습니다.
 async function sendRecord(record) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15000);
@@ -164,11 +158,9 @@ async function sendRecord(record) {
     });
 
     const result = await response.json().catch(() => null);
-
     if (!response.ok || !result || !result.ok) {
       throw new Error((result && result.error) || `저장 요청 실패 (${response.status})`);
     }
-
     return result;
   } catch (error) {
     if (error && error.name === 'AbortError') {
@@ -181,7 +173,7 @@ async function sendRecord(record) {
 }
 
 function syncRecord(record) {
-  return sendRecord(record).then(result => {
+  return sendRecord(record).then((result) => {
     markRecordSynced(record.recordId);
     return result;
   });
@@ -191,7 +183,7 @@ function syncPendingRecords() {
   if (syncAllPromise) return syncAllPromise;
 
   syncAllPromise = (async () => {
-    const pending = getStoredRecords().filter(record => !record.synced);
+    const pending = getStoredRecords().filter((record) => !record.synced);
     let synced = 0;
     let failed = 0;
 
@@ -213,104 +205,123 @@ function syncPendingRecords() {
   return syncAllPromise;
 }
 
-const qCards = [
-  {
-    title: '숲과 시선의 첫 만남',
-    description: '푸른 밤하늘과 꽃, 인물의 눈이 한 화면에서 만나며 관람객의 시선을 작품 안으로 끌어들입니다.',
-    script: '작품 전체를 먼저 천천히 바라봐 주세요. 가장 먼저 눈에 들어오는 곳이 어디인지 생각해보겠습니다.',
-    question: '이 작품에서 가장 먼저 시선이 머무는 곳은 어디인가요?',
-    point: '전체 구성, 첫인상, 눈과 배경의 대비'
-  },
-  {
-    title: '푸른색의 흐름',
-    description: '여러 층의 파랑과 청록색이 소용돌이치며 밤하늘과 자연의 움직임을 동시에 표현합니다.',
-    script: '파란색이 한 가지 색처럼 보이는지, 서로 다른 깊이로 느껴지는지 살펴보세요.',
-    question: '가장 차갑게 느껴지는 파랑과 가장 따뜻하게 느껴지는 파랑은 어디인가요?',
-    point: '색의 온도, 붓질 방향, 명암 변화'
-  },
-  {
-    title: '별빛 아래, 숲의 눈',
-    description: '큰 눈은 관람객을 바라보는 동시에 자연이 인간을 응시하는 듯한 인상을 만듭니다.',
-    script: '이번에는 작품 속 눈과 잠시 시선을 맞춰보겠습니다. 표정이 어떻게 느껴지는지 살펴보세요.',
-    question: '이 눈은 어떤 감정이나 이야기를 전하고 있다고 느끼나요?',
-    point: '시선, 표정, 반사광, 감정의 해석'
-  },
-  {
-    title: '꽃으로 이어진 얼굴',
-    description: '얼굴과 꽃의 경계가 사라지면서 인간과 자연이 하나의 존재처럼 연결됩니다.',
-    script: '꽃이 단순한 장식인지, 얼굴의 일부인지 구분해보며 작품을 보겠습니다.',
-    question: '꽃이 얼굴을 가리는 것처럼 보이나요, 얼굴을 완성하는 것처럼 보이나요?',
-    point: '인물과 자연의 결합, 경계, 상징성'
-  },
-  {
-    title: '생명과 성장의 리듬',
-    description: '서로 다른 크기와 색의 식물들이 아래에서 위로 자라며 화면에 생명력을 더합니다.',
-    script: '작품 아래쪽의 꽃과 줄기에서 위쪽 하늘까지 시선을 천천히 이동해보세요.',
-    question: '화면에서 가장 활발하게 움직이는 것처럼 느껴지는 부분은 어디인가요?',
-    point: '반복, 리듬, 성장 방향, 화면의 밀도'
-  },
-  {
-    title: '숲이 건네는 마지막 질문',
-    description: '작품은 인간이 자연을 바라보는 장면과 자연이 인간을 바라보는 장면을 동시에 보여줍니다.',
-    script: '처음 봤을 때와 지금의 느낌이 달라졌는지 떠올려보며 관람을 마무리하겠습니다.',
-    question: '이 작품을 한 문장으로 소개한다면 어떤 문장을 고르시겠어요?',
-    point: '전체 메시지, 개인적 해석, 관람 후 인상'
-  }
-];
-
-// 총 20개 슬롯 유지. 7번 이후는 빈 칸(추후 구글 시트 데이터로 교체 예정).
-const TOTAL_CARDS = 20;
-while (qCards.length < TOTAL_CARDS) {
-  qCards.push({
-    title: `작품 ${qCards.length + 1}`,
-    description: '',
-    script: '',
-    question: '',
-    point: ''
-  });
-}
-
-const SCREEN_ORDER = ['waiting', 'intro', 'roster', 'route', 'qcard', 'complete'];
+const SCREEN_ORDER = ['waiting', 'intro', 'roster', 'route', 'complete'];
 
 function currentScreen() {
-  const el = document.querySelector('.screen.active');
-  return el ? el.dataset.screen : 'waiting';
+  const element = document.querySelector('.screen.active');
+  return element ? element.dataset.screen : 'waiting';
 }
 
-// 명단 화면에서 다음으로 갈 수 있는지(입력 완료 여부)
 function rosterReady() {
   const name = document.getElementById('visitor-name').value.trim();
   const docent = document.getElementById('docent-select').value;
-  return !!(name && docent);
+  return Boolean(name && docent);
 }
 
 function updateNav() {
-  const cur = currentScreen();
-  const idx = SCREEN_ORDER.indexOf(cur);
-  const prevBtn = document.querySelector('[data-action="nav-prev"]');
-  const nextBtn = document.querySelector('[data-action="nav-next"]');
+  const current = currentScreen();
+  const index = SCREEN_ORDER.indexOf(current);
+  const prevButton = document.querySelector('[data-action="nav-prev"]');
+  const nextButton = document.querySelector('[data-action="nav-next"]');
 
-  // 갈 곳 없는 쪽은 숨김
-  const hasPrev = idx > 0;
-  const hasNext = idx < SCREEN_ORDER.length - 1;
-  prevBtn.style.display = hasPrev ? '' : 'none';
-  nextBtn.style.display = hasNext ? '' : 'none';
-
-  // 명단 화면은 입력 완료 전까지 다음 비활성화
-  nextBtn.disabled = (cur === 'roster' && !rosterReady());
+  // 완료 후에는 이전 화면으로 돌아가 중복 완료하는 것을 막습니다.
+  prevButton.style.display = index > 0 && current !== 'complete' ? '' : 'none';
+  nextButton.style.display = index < SCREEN_ORDER.length - 1 ? '' : 'none';
+  nextButton.disabled = current === 'roster' && !rosterReady();
 }
 
 function showScreen(name) {
-  screens.forEach(screen => screen.classList.toggle('active', screen.dataset.screen === name));
+  screens.forEach((screen) => {
+    screen.classList.toggle('active', screen.dataset.screen === name);
+  });
   const active = document.querySelector(`[data-screen="${name}"]`);
   if (active) active.scrollTop = 0;
   updateNav();
 }
 
-// 외부 파일이 정상 로드되었음을 표시합니다.
+function startTourFromForm() {
+  const name = document.getElementById('visitor-name').value.trim();
+  const docent = document.getElementById('docent-select').value;
+  const error = document.getElementById('form-error');
+
+  if (!name || !docent) {
+    error.textContent = '이름과 담당 도슨트를 모두 입력해주세요.';
+    return false;
+  }
+
+  error.textContent = '';
+  state.name = name;
+  state.docent = docent;
+
+  if (!state.startTime) {
+    state.startTime = nowString();
+    state.startedAtMs = Date.now();
+    state.recordId = makeRecordId();
+  }
+
+  saveActiveTour();
+  return true;
+}
+
+function completeTour() {
+  if (!state.name || !state.docent || !state.startTime) {
+    showScreen('roster');
+    return;
+  }
+
+  state.endTime = nowString();
+  document.getElementById('summary-name').textContent = state.name;
+  document.getElementById('summary-docent').textContent = state.docent;
+
+  const message = document.querySelector('.complete-message');
+
+  try {
+    const record = queueCurrentRecord();
+    message.textContent = '기기에 기록했습니다. 시트로 전송 중입니다.';
+
+    syncRecord(record)
+      .then(() => {
+        message.textContent = '기록이 시트에 저장되었습니다.';
+      })
+      .catch((error) => {
+        console.warn(error);
+        message.textContent = '기기에 저장되었습니다. 인터넷 연결 시 자동 전송됩니다.';
+      });
+  } catch (error) {
+    console.error(error);
+    message.textContent = '기기 저장에 실패했습니다. 관리자에게 알려주세요.';
+  }
+}
+
+function navTo(direction) {
+  const current = currentScreen();
+  const index = SCREEN_ORDER.indexOf(current);
+  const targetIndex = index + direction;
+  if (targetIndex < 0 || targetIndex >= SCREEN_ORDER.length) return;
+
+  const next = SCREEN_ORDER[targetIndex];
+
+  if (direction === 1 && current === 'roster' && !startTourFromForm()) return;
+  if (direction === 1 && current === 'route' && next === 'complete') completeTour();
+
+  showScreen(next);
+}
+
+function resetTour() {
+  state.name = '';
+  state.docent = '';
+  state.startTime = '';
+  state.endTime = '';
+  state.recordId = '';
+  state.startedAtMs = 0;
+  clearActiveTour();
+  document.getElementById('visitor-form').reset();
+  document.getElementById('form-error').textContent = '';
+  document.querySelector('.complete-message').textContent = '수고하셨습니다.';
+}
+
 document.documentElement.dataset.appReady = 'true';
 
-// 홈 화면은 시작 버튼뿐 아니라 화면 어디를 눌러도 다음 화면으로 이동합니다.
 const waitingScreen = document.querySelector('[data-screen="waiting"]');
 const startButton = document.querySelector('[data-action="start"]');
 if (startButton) {
@@ -319,148 +330,66 @@ if (startButton) {
     showScreen('intro');
   });
 }
-if (waitingScreen) {
-  waitingScreen.addEventListener('click', () => showScreen('intro'));
-}
-
-// 좌우 화살표로 화면 이동
-function navTo(direction) {
-  const cur = currentScreen();
-  const idx = SCREEN_ORDER.indexOf(cur);
-  const target = idx + direction;
-  if (target < 0 || target >= SCREEN_ORDER.length) return;
-  const next = SCREEN_ORDER[target];
-
-  // 명단 → 다음: 입력 검증 + 시작 시간 기록
-  if (direction === 1 && cur === 'roster') {
-    if (!rosterReady()) return;
-    state.name = document.getElementById('visitor-name').value.trim();
-    state.docent = document.getElementById('docent-select').value;
-    if (!state.startTime) {
-      state.startTime = nowString();
-      state.startedAtMs = Date.now();
-      state.recordId = makeRecordId();
-    }
-    saveActiveTour();
-  }
-  // Q카드 → 완료로 넘어갈 때 요약 채움
-  if (direction === 1 && cur === 'qcard') {
-    document.getElementById('summary-name').textContent = state.name;
-    document.getElementById('summary-docent').textContent = state.docent;
-  }
-  // 동선/대기로 진입 시 Q카드 인덱스 초기화
-  if (next === 'qcard') { state.qIndex = 0; renderQCard(); }
-  // 완료 화면 도달: 완료 시간을 기기에 먼저 저장한 뒤 GAS 전송
-  if (next === 'complete') {
-    state.endTime = nowString();
-    const message = document.querySelector('.complete-message');
-
-    try {
-      const record = queueCurrentRecord();
-      message.textContent = '기기에 기록했습니다. 시트로 전송 중입니다.';
-
-      syncRecord(record)
-        .then(() => {
-          message.textContent = '기록이 시트에 저장되었습니다.';
-        })
-        .catch((error) => {
-          console.warn(error);
-          message.textContent = '기기에 저장되었습니다. 인터넷 연결 시 자동 전송됩니다.';
-        });
-    } catch (error) {
-      console.error(error);
-      message.textContent = '기기 저장에 실패했습니다. 관리자에게 알려주세요.';
-    }
-  }
-  showScreen(next);
-}
-
-function renderQCard() {
-  const card = qCards[state.qIndex];
-  document.getElementById('q-counter').textContent = `Q카드 ${state.qIndex + 1} / ${qCards.length}`;
-  document.getElementById('progress-bar').style.width = `${((state.qIndex + 1) / qCards.length) * 100}%`;
-  document.getElementById('q-title').textContent = card.title;
-  document.getElementById('q-description').textContent = card.description;
-  document.getElementById('q-script').textContent = card.script;
-  document.getElementById('q-question').textContent = card.question;
-  document.getElementById('q-point').textContent = card.point;
-
-  const dots = document.getElementById('q-dots');
-  dots.innerHTML = qCards.map((_, i) => `<i class="${i === state.qIndex ? 'active' : ''}"></i>`).join('');
-  document.querySelector('[data-action="q-prev"]').disabled = state.qIndex === 0;
-  document.querySelector('[data-action="q-next"]').textContent = state.qIndex === qCards.length - 1 ? '안내 완료 ›' : '다음 카드 ›';
-}
-
-function resetTour() {
-  state.name = '';
-  state.docent = '';
-  state.qIndex = 0;
-  state.startTime = '';
-  state.endTime = '';
-  state.recordId = '';
-  state.startedAtMs = 0;
-  clearActiveTour();
-  document.getElementById('visitor-form').reset();
-  document.getElementById('form-error').textContent = '';
-  renderQCard();
-}
+if (waitingScreen) waitingScreen.addEventListener('click', () => showScreen('intro'));
 
 document.addEventListener('click', (event) => {
   const target = event.target.closest('[data-action]');
   if (!target) return;
+
   const action = target.dataset.action;
-  if (action === 'nav-prev') { navTo(-1); return; }
-  if (action === 'nav-next') { navTo(1); return; }
-  if (action === 'start') return;
-  if (action === 'back-waiting') showScreen('waiting');
-  if (action === 'route-next') { state.qIndex = 0; saveActiveTour(); renderQCard(); showScreen('qcard'); }
-  if (action === 'q-prev' && state.qIndex > 0) { state.qIndex--; saveActiveTour(); renderQCard(); }
-  if (action === 'q-next') {
-    if (state.qIndex < qCards.length - 1) { state.qIndex++; saveActiveTour(); renderQCard(); }
-    else { navTo(1); }
+  if (action === 'nav-prev') navTo(-1);
+  if (action === 'nav-next') navTo(1);
+  if (action === 'new-tour') {
+    resetTour();
+    showScreen('roster');
   }
-  if (action === 'new-tour') { resetTour(); showScreen('roster'); }
-  if (action === 'to-waiting') { resetTour(); showScreen('waiting'); }
+  if (action === 'to-waiting') {
+    resetTour();
+    showScreen('waiting');
+  }
 });
 
-// 전역 좌우 스와이프 = 화면 이동(navTo). 모든 화면에서 동작.
 const shell = document.querySelector('.app-shell');
 let touchStartX = null;
 let touchStartY = null;
 
 shell.addEventListener('touchstart', (event) => {
-  const t = event.changedTouches[0];
-  touchStartX = t.clientX;
-  touchStartY = t.clientY;
+  const touch = event.changedTouches[0];
+  touchStartX = touch.clientX;
+  touchStartY = touch.clientY;
 }, { passive: true });
 
 shell.addEventListener('touchend', (event) => {
   if (touchStartX === null) return;
-  const t = event.changedTouches[0];
-  const dx = t.clientX - touchStartX;
-  const dy = t.clientY - touchStartY;
+  const touch = event.changedTouches[0];
+  const dx = touch.clientX - touchStartX;
+  const dy = touch.clientY - touchStartY;
   touchStartX = null;
   touchStartY = null;
-  // 가로 이동이 충분히 크고 세로보다 우세할 때만 화면 이동
+
   if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.3) {
-    // 오른쪽으로 밀면 이전(왼쪽 화면), 왼쪽으로 밀면 다음(오른쪽 화면)
     navTo(dx > 0 ? -1 : 1);
   }
 });
 
-// PC 마우스 드래그도 지원 (입력 요소 위에서 시작한 드래그는 제외)
 let mouseStartX = null;
 let mouseStartY = null;
 shell.addEventListener('mousedown', (event) => {
-  if (event.target.closest('input, select, textarea')) { mouseStartX = null; return; }
+  if (event.target.closest('input, select, textarea')) {
+    mouseStartX = null;
+    return;
+  }
   mouseStartX = event.clientX;
   mouseStartY = event.clientY;
 });
+
 shell.addEventListener('mouseup', (event) => {
   if (mouseStartX === null) return;
   const dx = event.clientX - mouseStartX;
   const dy = event.clientY - mouseStartY;
   mouseStartX = null;
+  mouseStartY = null;
+
   if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.3) {
     navTo(dx > 0 ? -1 : 1);
   }
@@ -468,34 +397,14 @@ shell.addEventListener('mouseup', (event) => {
 
 document.getElementById('visitor-form').addEventListener('submit', (event) => {
   event.preventDefault();
-  const name = document.getElementById('visitor-name').value.trim();
-  const docent = document.getElementById('docent-select').value;
-  const error = document.getElementById('form-error');
-  if (!name || !docent) {
-    error.textContent = '이름과 담당 도슨트를 모두 입력해주세요.';
-    return;
-  }
-  error.textContent = '';
-  state.name = name;
-  state.docent = docent;
-  if (!state.startTime) {
-    state.startTime = nowString();
-    state.startedAtMs = Date.now();
-    state.recordId = makeRecordId();
-  }
-  saveActiveTour();
-  showScreen('route');
+  if (startTourFromForm()) showScreen('route');
 });
 
-// 명단 입력이 바뀔 때마다 다음 버튼 활성/비활성 갱신
 document.getElementById('visitor-name').addEventListener('input', updateNav);
 document.getElementById('docent-select').addEventListener('change', updateNav);
 
 restoreActiveTour();
-renderQCard();
 updateNav();
 
-// 앱을 열거나 인터넷이 다시 연결되면 미전송 기록을 자동 재전송합니다.
 setTimeout(() => { syncPendingRecords(); }, 0);
 window.addEventListener('online', () => { syncPendingRecords(); });
-

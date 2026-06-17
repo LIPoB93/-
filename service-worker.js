@@ -1,4 +1,4 @@
-const CACHE = 'forest-qcard-retired-v5';
+const CACHE = 'forest-visit-retired-v10';
 self.addEventListener('install', event => { self.skipWaiting(); });
 self.addEventListener('activate', event => {
   event.waitUntil(
