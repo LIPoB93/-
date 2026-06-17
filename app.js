@@ -6,7 +6,15 @@ const SHEET_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyvUVC8QhU_iEcdM
 // ───────────────────────────────────────────────
 
 const screens = [...document.querySelectorAll('.screen')];
-const state = { name: '', docent: '', qIndex: 0, startTime: '', endTime: '' };
+const state = {
+  name: '',
+  docent: '',
+  qIndex: 0,
+  startTime: '',
+  endTime: '',
+  recordId: '',
+  startedAtMs: 0
+};
 
 // 한국 시간 문자열(YYYY-MM-DD HH:mm:ss)
 function nowString() {
@@ -15,62 +23,212 @@ function nowString() {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
-// 시트로 기록 전송
-// JSONP를 사용해 다른 도메인의 GAS에서도 실제 성공 여부를 확인합니다.
-function sendRecord() {
+// 기록은 먼저 기기에 저장한 뒤 GAS로 전송합니다.
+// 전송 실패 시 보관되며, 다음 접속 또는 인터넷 복구 시 자동 재전송합니다.
+const STORAGE_KEYS = {
+  records: 'forest-qcard-records-v1',
+  active: 'forest-qcard-active-v1'
+};
+const MAX_STORED_RECORDS = 100;
+let syncAllPromise = null;
+
+function makeRecordId() {
+  if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+    return window.crypto.randomUUID();
+  }
+  return `record_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function readJson(key, fallback) {
+  try {
+    const value = localStorage.getItem(key);
+    return value ? JSON.parse(value) : fallback;
+  } catch (error) {
+    console.warn('기기 저장 데이터 읽기 실패:', error);
+    return fallback;
+  }
+}
+
+function writeJson(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch (error) {
+    console.error('기기 저장 실패:', error);
+    return false;
+  }
+}
+
+function getStoredRecords() {
+  const records = readJson(STORAGE_KEYS.records, []);
+  return Array.isArray(records) ? records : [];
+}
+
+function saveStoredRecords(records) {
+  // 최근 기록 100개만 기기에 유지합니다.
+  const sorted = [...records].sort((a, b) => (a.createdAtMs || 0) - (b.createdAtMs || 0));
+  return writeJson(STORAGE_KEYS.records, sorted.slice(-MAX_STORED_RECORDS));
+}
+
+function saveActiveTour() {
+  if (!state.name || !state.docent || !state.startTime) return;
+  writeJson(STORAGE_KEYS.active, {
+    recordId: state.recordId,
+    name: state.name,
+    docent: state.docent,
+    startTime: state.startTime,
+    qIndex: state.qIndex,
+    startedAtMs: state.startedAtMs || Date.now()
+  });
+}
+
+function clearActiveTour() {
+  try { localStorage.removeItem(STORAGE_KEYS.active); } catch (error) {}
+}
+
+function restoreActiveTour() {
+  const active = readJson(STORAGE_KEYS.active, null);
+  if (!active || !active.name || !active.docent || !active.startTime) return;
+
+  // 너무 오래된 미완료 기록은 다음 관람객에게 이어지지 않도록 폐기합니다.
+  const age = Date.now() - Number(active.startedAtMs || 0);
+  if (!Number.isFinite(age) || age > 12 * 60 * 60 * 1000) {
+    clearActiveTour();
+    return;
+  }
+
+  state.recordId = active.recordId || makeRecordId();
+  state.name = active.name;
+  state.docent = active.docent;
+  state.startTime = active.startTime;
+  state.startedAtMs = Number(active.startedAtMs || Date.now());
+  state.qIndex = Math.max(0, Math.min(Number(active.qIndex || 0), TOTAL_CARDS - 1));
+
+  document.getElementById('visitor-name').value = state.name;
+  document.getElementById('docent-select').value = state.docent;
+}
+
+function queueCurrentRecord() {
+  const record = {
+    recordId: state.recordId || makeRecordId(),
+    name: state.name,
+    docent: state.docent,
+    startTime: state.startTime,
+    endTime: state.endTime,
+    createdAtMs: state.startedAtMs || Date.now(),
+    completedAtMs: Date.now(),
+    synced: false,
+    syncedAtMs: null
+  };
+
+  const records = getStoredRecords();
+  const index = records.findIndex(item => item.recordId === record.recordId);
+  if (index >= 0) records[index] = { ...records[index], ...record };
+  else records.push(record);
+
+  if (!saveStoredRecords(records)) {
+    throw new Error('기기에 기록을 저장하지 못했습니다.');
+  }
+
+  clearActiveTour();
+  return record;
+}
+
+function markRecordSynced(recordId) {
+  const records = getStoredRecords();
+  const index = records.findIndex(item => item.recordId === recordId);
+  if (index < 0) return;
+  records[index] = {
+    ...records[index],
+    synced: true,
+    syncedAtMs: Date.now()
+  };
+  saveStoredRecords(records);
+}
+
+// JSONP는 Vercel과 GAS가 다른 도메인이어도 실제 성공 응답을 확인할 수 있습니다.
+function sendRecord(record) {
   if (!SHEET_ENDPOINT) {
     return Promise.reject(new Error('GAS 주소가 설정되지 않았습니다.'));
   }
 
   return new Promise((resolve, reject) => {
-    const callbackName = `__forestQcard_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const callbackName = `forestQcardCallback_${Date.now()}_${Math.random().toString(36).slice(2)}`;
     const script = document.createElement('script');
     let finished = false;
 
     const cleanup = () => {
-      if (script.parentNode) script.parentNode.removeChild(script);
-      try { delete window[callbackName]; } catch (_) { window[callbackName] = undefined; }
-    };
-
-    const timer = setTimeout(() => {
-      if (finished) return;
-      finished = true;
-      cleanup();
-      reject(new Error('기록 저장 응답 시간이 초과되었습니다.'));
-    }, 15000);
-
-    window[callbackName] = (result) => {
       if (finished) return;
       finished = true;
       clearTimeout(timer);
-      cleanup();
+      script.remove();
+      try { delete window[callbackName]; } catch (error) { window[callbackName] = undefined; }
+    };
 
+    window[callbackName] = (result) => {
+      cleanup();
       if (result && result.ok) resolve(result);
-      else reject(new Error((result && result.error) || '기록 저장에 실패했습니다.'));
+      else reject(new Error((result && result.error) || 'GAS 저장 응답이 올바르지 않습니다.'));
     };
 
     const params = new URLSearchParams({
       action: 'save',
       callback: callbackName,
-      name: state.name,
-      docent: state.docent,
-      startTime: state.startTime,
-      endTime: state.endTime,
+      recordId: record.recordId,
+      name: record.name,
+      docent: record.docent,
+      startTime: record.startTime,
+      endTime: record.endTime,
       _: String(Date.now())
     });
 
-    script.src = `${SHEET_ENDPOINT}?${params.toString()}`;
     script.async = true;
+    script.src = `${SHEET_ENDPOINT}?${params.toString()}`;
     script.onerror = () => {
-      if (finished) return;
-      finished = true;
-      clearTimeout(timer);
       cleanup();
-      reject(new Error('GAS에 연결할 수 없습니다.'));
+      reject(new Error('GAS 연결에 실패했습니다.'));
     };
+
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error('GAS 응답 시간이 초과되었습니다.'));
+    }, 15000);
 
     document.head.appendChild(script);
   });
+}
+
+function syncRecord(record) {
+  return sendRecord(record).then(result => {
+    markRecordSynced(record.recordId);
+    return result;
+  });
+}
+
+function syncPendingRecords() {
+  if (syncAllPromise) return syncAllPromise;
+
+  syncAllPromise = (async () => {
+    const pending = getStoredRecords().filter(record => !record.synced);
+    let synced = 0;
+    let failed = 0;
+
+    for (const record of pending) {
+      try {
+        await syncRecord(record);
+        synced += 1;
+      } catch (error) {
+        failed += 1;
+        console.warn('미전송 기록 재전송 실패:', record.recordId, error);
+      }
+    }
+
+    return { synced, failed };
+  })().finally(() => {
+    syncAllPromise = null;
+  });
+
+  return syncAllPromise;
 }
 
 const qCards = [
@@ -196,7 +354,12 @@ function navTo(direction) {
     if (!rosterReady()) return;
     state.name = document.getElementById('visitor-name').value.trim();
     state.docent = document.getElementById('docent-select').value;
-    if (!state.startTime) state.startTime = nowString();
+    if (!state.startTime) {
+      state.startTime = nowString();
+      state.startedAtMs = Date.now();
+      state.recordId = makeRecordId();
+    }
+    saveActiveTour();
   }
   // Q카드 → 완료로 넘어갈 때 요약 채움
   if (direction === 1 && cur === 'qcard') {
@@ -205,20 +368,27 @@ function navTo(direction) {
   }
   // 동선/대기로 진입 시 Q카드 인덱스 초기화
   if (next === 'qcard') { state.qIndex = 0; renderQCard(); }
-  // 완료 화면 도달: 완료 시간 기록 + 시트 전송
+  // 완료 화면 도달: 완료 시간을 기기에 먼저 저장한 뒤 GAS 전송
   if (next === 'complete') {
     state.endTime = nowString();
     const message = document.querySelector('.complete-message');
-    message.textContent = '기록을 저장하고 있습니다.';
 
-    sendRecord()
-      .then(() => {
-        message.textContent = '기록이 저장되었습니다.';
-      })
-      .catch((error) => {
-        console.error(error);
-        message.textContent = '기록 저장에 실패했습니다. 관리자에게 알려주세요.';
-      });
+    try {
+      const record = queueCurrentRecord();
+      message.textContent = '기기에 기록했습니다. 시트로 전송 중입니다.';
+
+      syncRecord(record)
+        .then(() => {
+          message.textContent = '기록이 시트에 저장되었습니다.';
+        })
+        .catch((error) => {
+          console.warn(error);
+          message.textContent = '기기에 저장되었습니다. 인터넷 연결 시 자동 전송됩니다.';
+        });
+    } catch (error) {
+      console.error(error);
+      message.textContent = '기기 저장에 실패했습니다. 관리자에게 알려주세요.';
+    }
   }
   showScreen(next);
 }
@@ -245,6 +415,9 @@ function resetTour() {
   state.qIndex = 0;
   state.startTime = '';
   state.endTime = '';
+  state.recordId = '';
+  state.startedAtMs = 0;
+  clearActiveTour();
   document.getElementById('visitor-form').reset();
   document.getElementById('form-error').textContent = '';
   renderQCard();
@@ -258,10 +431,10 @@ document.addEventListener('click', (event) => {
   if (action === 'nav-next') { navTo(1); return; }
   if (action === 'start') return;
   if (action === 'back-waiting') showScreen('waiting');
-  if (action === 'route-next') { state.qIndex = 0; renderQCard(); showScreen('qcard'); }
-  if (action === 'q-prev' && state.qIndex > 0) { state.qIndex--; renderQCard(); }
+  if (action === 'route-next') { state.qIndex = 0; saveActiveTour(); renderQCard(); showScreen('qcard'); }
+  if (action === 'q-prev' && state.qIndex > 0) { state.qIndex--; saveActiveTour(); renderQCard(); }
   if (action === 'q-next') {
-    if (state.qIndex < qCards.length - 1) { state.qIndex++; renderQCard(); }
+    if (state.qIndex < qCards.length - 1) { state.qIndex++; saveActiveTour(); renderQCard(); }
     else { navTo(1); }
   }
   if (action === 'new-tour') { resetTour(); showScreen('roster'); }
@@ -323,7 +496,12 @@ document.getElementById('visitor-form').addEventListener('submit', (event) => {
   error.textContent = '';
   state.name = name;
   state.docent = docent;
-  if (!state.startTime) state.startTime = nowString();
+  if (!state.startTime) {
+    state.startTime = nowString();
+    state.startedAtMs = Date.now();
+    state.recordId = makeRecordId();
+  }
+  saveActiveTour();
   showScreen('route');
 });
 
@@ -331,9 +509,11 @@ document.getElementById('visitor-form').addEventListener('submit', (event) => {
 document.getElementById('visitor-name').addEventListener('input', updateNav);
 document.getElementById('docent-select').addEventListener('change', updateNav);
 
+restoreActiveTour();
 renderQCard();
 updateNav();
 
-if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-  navigator.serviceWorker.register('./service-worker.js?v=3').then(reg => reg.update()).catch(() => {});
-}
+// 앱을 열거나 인터넷이 다시 연결되면 미전송 기록을 자동 재전송합니다.
+setTimeout(() => { syncPendingRecords(); }, 0);
+window.addEventListener('online', () => { syncPendingRecords(); });
+
