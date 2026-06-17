@@ -14,7 +14,8 @@ export function GET() {
   return json({
     ok: true,
     service: 'forest-qcard-save-proxy',
-    endpointConfigured: Boolean(GAS_ENDPOINT)
+    endpointConfigured: Boolean(GAS_ENDPOINT),
+    transport: 'gas-get'
   });
 }
 
@@ -35,27 +36,31 @@ export async function POST(request) {
       return json({ ok: false, error: '시작 시간 또는 완료 시간이 없습니다.' }, 400);
     }
 
+    // Apps Script ContentService 응답은 리다이렉트를 거칠 수 있습니다.
+    // POST 리다이렉트 과정에서 본문이 사라지는 문제를 피하기 위해
+    // GAS의 doGet(action=save)로 모든 값을 쿼리 파라미터로 전달합니다.
+    const gasUrl = new URL(GAS_ENDPOINT);
+    gasUrl.searchParams.set('action', 'save');
+    gasUrl.searchParams.set('recordId', recordId);
+    gasUrl.searchParams.set('name', name);
+    gasUrl.searchParams.set('docent', docent);
+    gasUrl.searchParams.set('startTime', startTime);
+    gasUrl.searchParams.set('endTime', endTime);
+
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15000);
 
     let gasResponse;
     try {
-      gasResponse = await fetch(GAS_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'text/plain;charset=utf-8',
-          'Cache-Control': 'no-store'
-        },
-        body: JSON.stringify({
-          recordId,
-          name,
-          docent,
-          startTime,
-          endTime
-        }),
+      gasResponse = await fetch(gasUrl, {
+        method: 'GET',
         redirect: 'follow',
         cache: 'no-store',
-        signal: controller.signal
+        signal: controller.signal,
+        headers: {
+          'Cache-Control': 'no-store',
+          'Accept': 'application/json,text/plain,*/*'
+        }
       });
     } finally {
       clearTimeout(timer);
@@ -70,14 +75,15 @@ export async function POST(request) {
       return json({
         ok: false,
         error: 'GAS 응답을 JSON으로 확인하지 못했습니다.',
-        detail: text.slice(0, 200)
+        detail: text.slice(0, 300)
       }, 502);
     }
 
     if (!gasResponse.ok || !result?.ok) {
       return json({
         ok: false,
-        error: result?.error || `GAS 요청 실패 (${gasResponse.status})`
+        error: result?.error || `GAS 요청 실패 (${gasResponse.status})`,
+        detail: text.slice(0, 300)
       }, 502);
     }
 
