@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
   <meta name="theme-color" content="#07111d" />
   <title>숲의 시선 · 도슨트 Q카드</title>
-  <link rel="stylesheet" href="styles.css?v=2" />
+  <link rel="stylesheet" href="styles.css?v=3" />
   <link rel="manifest" href="manifest.webmanifest" />
 </head>
 <body>
@@ -16,7 +16,7 @@
     <button class="nav-arrow nav-prev" type="button" data-action="nav-prev" aria-label="이전 화면">&lt;</button>
     <button class="nav-arrow nav-next" type="button" data-action="nav-next" aria-label="다음 화면">&gt;</button>
 
-    <section class="screen active" data-screen="waiting" aria-label="대기 화면">
+    <section class="screen active" data-screen="waiting" data-start-zone="true" aria-label="대기 화면">
       <div class="center-stack waiting-stack">
         <img class="brand-logo brand-logo-large" src="assets/title.png" alt="숲의 시선" />
         <div class="divider"><span></span><b>✦</b><span></span></div>
@@ -178,6 +178,22 @@
       </div>
     </section>
   </main>
-  <script src="app.js?v=2"></script>
+  <div id="app-load-error" hidden style="position:fixed;left:16px;right:16px;bottom:16px;z-index:9999;padding:14px;border-radius:12px;background:#5b1724;color:white;text-align:center;">앱 파일을 불러오지 못했습니다. 페이지를 새로고침해주세요.</div>
+  <script>
+    // 이전 배포의 서비스워커 캐시를 제거해 최신 파일이 즉시 적용되도록 합니다.
+    (function () {
+      var BUILD = 'forest-qcard-v3';
+      try {
+        var previous = localStorage.getItem('forest-qcard-build');
+        if (previous !== BUILD && 'caches' in window) {
+          caches.keys().then(function (keys) {
+            return Promise.all(keys.map(function (key) { return caches.delete(key); }));
+          });
+        }
+        localStorage.setItem('forest-qcard-build', BUILD);
+      } catch (e) {}
+    })();
+  </script>
+  <script src="app.js?v=3" defer onerror="document.getElementById('app-load-error').hidden=false"></script>
 </body>
 </html>
