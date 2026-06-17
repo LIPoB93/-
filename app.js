@@ -18,19 +18,15 @@ function nowString() {
 // 시트로 기록 전송 (실패해도 앱 흐름은 막지 않음)
 function sendRecord() {
   if (!SHEET_ENDPOINT) return;
-  const payload = {
+  // no-cors 환경에서도 데이터가 확실히 전달되도록 URL 쿼리 파라미터로 전송
+  const params = new URLSearchParams({
     name: state.name,
     docent: state.docent,
     startTime: state.startTime,
     endTime: state.endTime
-  };
-  // no-cors: Apps Script 응답을 읽지는 못하지만 전송은 됨
-  fetch(SHEET_ENDPOINT, {
-    method: 'POST',
-    mode: 'no-cors',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(payload)
-  }).catch(() => {});
+  });
+  const url = SHEET_ENDPOINT + '?' + params.toString();
+  fetch(url, { method: 'POST', mode: 'no-cors' }).catch(() => {});
 }
 
 const qCards = [
