@@ -166,41 +166,47 @@ document.addEventListener('click', (event) => {
   if (action === 'to-waiting') { resetTour(); showScreen('waiting'); }
 });
 
-const routeCard = document.querySelector('.route-card');
+// 전역 좌우 스와이프 = 화면 이동(navTo). 모든 화면에서 동작.
+const shell = document.querySelector('.app-shell');
 let touchStartX = null;
 let touchStartY = null;
 
-function goToQcard() {
-  state.qIndex = 0;
-  renderQCard();
-  showScreen('qcard');
-}
-
-routeCard.addEventListener('touchstart', (event) => {
+shell.addEventListener('touchstart', (event) => {
   const t = event.changedTouches[0];
   touchStartX = t.clientX;
   touchStartY = t.clientY;
 }, { passive: true });
 
-routeCard.addEventListener('touchend', (event) => {
+shell.addEventListener('touchend', (event) => {
   if (touchStartX === null) return;
   const t = event.changedTouches[0];
   const dx = t.clientX - touchStartX;
   const dy = t.clientY - touchStartY;
   touchStartX = null;
   touchStartY = null;
-  // 가로 스와이프(좌우 어느 방향이든)가 세로 움직임보다 충분히 크면 이동
-  if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) goToQcard();
+  // 가로 이동이 충분히 크고 세로보다 우세할 때만 화면 이동
+  if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.3) {
+    // 오른쪽으로 밀면 이전(왼쪽 화면), 왼쪽으로 밀면 다음(오른쪽 화면)
+    navTo(dx > 0 ? -1 : 1);
+  }
 });
 
-// 마우스 환경(PC)에서도 드래그로 넘길 수 있도록
+// PC 마우스 드래그도 지원 (입력 요소 위에서 시작한 드래그는 제외)
 let mouseStartX = null;
-routeCard.addEventListener('mousedown', (event) => { mouseStartX = event.clientX; });
-routeCard.addEventListener('mouseup', (event) => {
+let mouseStartY = null;
+shell.addEventListener('mousedown', (event) => {
+  if (event.target.closest('input, select, textarea')) { mouseStartX = null; return; }
+  mouseStartX = event.clientX;
+  mouseStartY = event.clientY;
+});
+shell.addEventListener('mouseup', (event) => {
   if (mouseStartX === null) return;
   const dx = event.clientX - mouseStartX;
+  const dy = event.clientY - mouseStartY;
   mouseStartX = null;
-  if (Math.abs(dx) > 60) goToQcard();
+  if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.3) {
+    navTo(dx > 0 ? -1 : 1);
+  }
 });
 
 document.getElementById('visitor-form').addEventListener('submit', (event) => {
