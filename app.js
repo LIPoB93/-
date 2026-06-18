@@ -86,7 +86,7 @@ while (qCards.length < TOTAL_CARDS) {
   });
 }
 
-const SCREEN_ORDER = ['waiting', 'intro', 'roster', 'route', 'qcard', 'message', 'complete'];
+const SCREEN_ORDER = ['waiting', 'intro', 'roster', 'route', 'qcard', 'video', 'message', 'complete'];
 
 function currentScreen() {
   const el = document.querySelector('.screen.active');

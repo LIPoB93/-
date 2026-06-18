@@ -141,9 +141,10 @@ button { cursor: pointer; }
 .intro-text { margin: 0; color: #f3e9eb; font-size: clamp(15px, 2.2vw, 19px); line-height: 1.85; white-space: pre-line; text-align: left; }
 .intro-lead { color: #fff; font-size: clamp(17px, 2.6vw, 23px); font-weight: 700; line-height: 1.5; }
 
-.message-video { width: min(690px, 100%); margin: 0 auto 22px; border-radius: 22px; overflow: hidden; border: 1px solid rgba(255,194,205,.6); box-shadow: 0 18px 50px rgba(0,0,0,.3); background: #000; }
-.message-video video { width: 100%; height: auto; display: block; background: #000; }
-.video-fallback { margin: 0; padding: 28px 20px; color: #ffd0d8; font-size: 15px; text-align: center; background: rgba(8,19,32,.6); }
+.video-screen { justify-content: center; align-items: center; }
+.video-stage { width: 100%; max-width: 1000px; margin: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.video-stage video { width: 100%; height: auto; max-height: 82vh; display: block; border-radius: 22px; border: 1px solid rgba(255,194,205,.6); box-shadow: 0 18px 50px rgba(0,0,0,.35); background: #000; }
+.video-fallback { margin: 0; padding: 28px 20px; color: #ffd0d8; font-size: 15px; text-align: center; background: rgba(8,19,32,.6); border-radius: 16px; }
 .message-card { width: min(690px, 100%); margin: 0 auto; padding: clamp(26px, 4.5vw, 42px); display: grid; gap: 18px; }
 .message-text { margin: 0; color: #f3e9eb; font-size: clamp(15px, 2.2vw, 19px); line-height: 1.85; text-align: left; }
 .message-lead { color: #fff; font-size: clamp(17px, 2.6vw, 23px); font-weight: 700; line-height: 1.55; }

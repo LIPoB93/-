@@ -164,19 +164,21 @@
       </div>
     </section>
 
+    <section class="screen video-screen" data-screen="video" aria-label="마무리 영상">
+      <div class="video-stage">
+        <video controls playsinline preload="metadata" poster="assets/ending-poster.jpg" onerror="this.parentElement.querySelector('.video-fallback').style.display='block'">
+          <source src="assets/ending.mp4" type="video/mp4" />
+        </video>
+        <p class="video-fallback" style="display:none">영상을 불러올 수 없습니다. assets 폴더에 ending.mp4 파일이 있는지 확인해주세요.</p>
+      </div>
+    </section>
+
     <section class="screen" data-screen="message" aria-label="마무리 메시지">
       <header class="screen-header centered">
         <img class="brand-logo" src="assets/title.png" alt="숲의 시선" />
       </header>
       <div class="section-title">
         <div class="divider compact"><span></span><b>✦</b><span></span></div>
-      </div>
-
-      <div class="message-video">
-        <video controls playsinline preload="metadata" poster="assets/ending-poster.jpg" onerror="this.parentElement.querySelector('.video-fallback').style.display='block'">
-          <source src="assets/ending.mp4" type="video/mp4" />
-        </video>
-        <p class="video-fallback" style="display:none">영상을 불러올 수 없습니다. assets 폴더에 ending.mp4 파일이 있는지 확인해주세요.</p>
       </div>
 
       <div class="glass-card message-card">
