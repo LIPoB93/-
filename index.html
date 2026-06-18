@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
   <meta name="theme-color" content="#07111d" />
-  <title>숲의 시선 · 관람 기록</title>
-  <link rel="stylesheet" href="styles.css?v=10" />
+  <title>숲의 시선 · 도슨트 Q카드</title>
+  <link rel="stylesheet" href="styles.css" />
   <link rel="manifest" href="manifest.webmanifest" />
 </head>
 <body>
@@ -16,7 +16,7 @@
     <button class="nav-arrow nav-prev" type="button" data-action="nav-prev" aria-label="이전 화면">&lt;</button>
     <button class="nav-arrow nav-next" type="button" data-action="nav-next" aria-label="다음 화면">&gt;</button>
 
-    <section class="screen active" data-screen="waiting" data-start-zone="true" aria-label="대기 화면">
+    <section class="screen active" data-screen="waiting" aria-label="대기 화면">
       <div class="center-stack waiting-stack">
         <img class="brand-logo brand-logo-large" src="assets/title.png" alt="숲의 시선" />
         <div class="divider"><span></span><b>✦</b><span></span></div>
@@ -37,7 +37,10 @@
       </div>
 
       <div class="glass-card intro-card">
-        <p class="intro-text">여기에 전시회 소개 내용이 들어갑니다. 전시의 주제, 작가, 관람 포인트 등을 자유롭게 작성해주세요.</p>
+        <p class="intro-text intro-lead">〈순수의 시선〉 전시회에 오신 것을 환영합니다.</p>
+        <p class="intro-text">본 전시는 은평구의 문화·예술 발전과 잠재력 있는 신예 작가들을 위해 은평문화협회가 주최하고, 사회적기업 유니큐브, 심리상담센터 여정, 은평미래비전센터의 따뜻한 후원으로 마련되었습니다.</p>
+        <p class="intro-text">이번 전시에는 총 20점의 작품이 소개됩니다. 특기할 점은 작품 곁에 작가의 이름이나 기획 의도를 별도로 표기하지 않았다는 것입니다. 이는 관람객 여러분이 어떠한 선입견이나 정해진 틀 없이, 오롯이 자신의 시선으로 작품과 마주하기를 바라는 뜻을 담고 있습니다.</p>
+        <p class="intro-text">전시를 관람하시는 동안 작품 너머에 담긴 작가들의 섬세한 감정과 메시지를 자유롭게 상상하며, 온전한 ‘나’만의 감상에 빠져 보는 뜻깊은 시간이 되시기를 바랍니다.</p>
       </div>
     </section>
 
@@ -116,14 +119,56 @@
           <text class="route-note" x="380" y="445" text-anchor="middle">출입구로 입장 → 시계 반대 방향 관람 → 같은 출입구로 퇴장</text>
         </svg>
       </div>
-      <p class="tap-hint">관람이 끝나면 오른쪽 화살표를 눌러 완료하세요</p>
+      <p class="tap-hint">화살표 버튼이나 좌우로 넘겨 이동하세요</p>
+    </section>
+
+    <section class="screen" data-screen="qcard" aria-label="Q카드">
+      <header class="screen-header centered q-header">
+        <img class="brand-logo" src="assets/title.png" alt="숲의 시선" />
+      </header>
+      <div class="q-progress-wrap">
+        <strong id="q-counter">Q카드 1 / 6</strong>
+        <div class="progress-track"><span id="progress-bar"></span></div>
+      </div>
+
+      <article class="glass-card q-card">
+        <div class="q-copy">
+          <section>
+            <h2>작품명</h2>
+            <p class="q-title" id="q-title"></p>
+          </section>
+          <section>
+            <h2>핵심 설명</h2>
+            <p id="q-description"></p>
+          </section>
+          <section>
+            <h2>안내 멘트</h2>
+            <p id="q-script"></p>
+          </section>
+          <section>
+            <h2>관람객 질문</h2>
+            <p id="q-question"></p>
+          </section>
+          <section>
+            <h2>포인트</h2>
+            <p id="q-point"></p>
+          </section>
+        </div>
+        <img class="artwork-preview" src="assets/background.jpg" alt="작품 미리보기" />
+      </article>
+
+      <div class="q-dots" id="q-dots" aria-hidden="true"></div>
+      <div class="q-controls">
+        <button class="secondary-button" type="button" data-action="q-prev">‹ 이전 카드</button>
+        <button class="primary-button compact-button" type="button" data-action="q-next">다음 카드 ›</button>
+      </div>
     </section>
 
     <section class="screen" data-screen="complete" aria-label="완료">
       <div class="center-stack complete-stack">
         <img class="brand-logo" src="assets/title.png" alt="숲의 시선" />
         <div class="complete-check">✓</div>
-        <h1>관람이 완료되었습니다</h1>
+        <h1>안내가 완료되었습니다</h1>
         <p class="complete-message">수고하셨습니다.</p>
 
         <div class="glass-card summary-card">
@@ -131,32 +176,11 @@
           <div><span>담당 도슨트</span><strong id="summary-docent">-</strong></div>
         </div>
 
-        <button class="primary-button wide-button" type="button" data-action="new-tour">✦ 새 관람 시작</button>
+        <button class="primary-button wide-button" type="button" data-action="new-tour">✦ 새 안내 시작</button>
         <button class="secondary-button wide-button" type="button" data-action="to-waiting">대기 화면으로</button>
       </div>
     </section>
   </main>
-  <div id="app-load-error" hidden style="position:fixed;left:16px;right:16px;bottom:16px;z-index:9999;padding:14px;border-radius:12px;background:#5b1724;color:white;text-align:center;">앱 파일을 불러오지 못했습니다. 페이지를 새로고침해주세요.</div>
-  <script>
-    // 이전 배포의 서비스워커 캐시를 제거해 최신 파일이 즉시 적용되도록 합니다.
-    (function () {
-      var BUILD = 'forest-visit-v10';
-      try {
-        var previous = localStorage.getItem('forest-qcard-build');
-        if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.getRegistrations().then(function (registrations) {
-            registrations.forEach(function (registration) { registration.unregister(); });
-          });
-        }
-        if ('caches' in window) {
-          caches.keys().then(function (keys) {
-            return Promise.all(keys.map(function (key) { return caches.delete(key); }));
-          });
-        }
-        localStorage.setItem('forest-qcard-build', BUILD);
-      } catch (e) {}
-    })();
-  </script>
-  <script src="app.js?v=10" defer onerror="document.getElementById('app-load-error').hidden=false"></script>
+  <script src="app.js"></script>
 </body>
 </html>
