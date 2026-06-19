@@ -18,15 +18,16 @@ function nowString() {
 // 시트로 기록 전송 (실패해도 앱 흐름은 막지 않음)
 function sendRecord() {
   if (!SHEET_ENDPOINT) return;
-  // no-cors 환경에서도 데이터가 확실히 전달되도록 URL 쿼리 파라미터로 전송
+  // GET + URL 파라미터로 전송 (POST가 401로 막히는 환경 대비, doGet에서 처리)
   const params = new URLSearchParams({
+    save: '1',
     name: state.name,
     docent: state.docent,
     startTime: state.startTime,
     endTime: state.endTime
   });
   const url = SHEET_ENDPOINT + '?' + params.toString();
-  fetch(url, { method: 'POST', mode: 'no-cors' }).catch(() => {});
+  fetch(url, { method: 'GET', mode: 'no-cors' }).catch(() => {});
 }
 
 
