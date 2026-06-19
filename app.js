@@ -32,10 +32,6 @@ function sendRecord() {
     img.referrerPolicy = 'no-referrer';
     img.src = url;
   } catch (e) {}
-  // 백업으로 fetch도 시도 (둘 중 하나만 성공해도 기록됨)
-  try {
-    fetch(url, { method: 'GET', mode: 'no-cors', redirect: 'follow' }).catch(() => {});
-  } catch (e) {}
 }
 
 
