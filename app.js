@@ -2,7 +2,7 @@
 // 구글 스프레드시트 연동 설정
 // Apps Script 웹앱 배포 후 받은 URL을 아래 따옴표 안에 붙여넣으세요.
 // 비워두면 기록 전송은 건너뛰고 앱은 정상 동작합니다.
-const SHEET_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyvUVC8QhU_iEcdMaM_o8KiapxWONkzGBQDho6ac8HV5qn-y2UBeEiMTz-kq3bou6iOsQ/exec';
+const SHEET_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzSwNG2C4RzRDRb62IT0VQRydfB1AauNDMKHK3OUQNpIZP_nAHisQPiEIDju3zKXFvrjg/exec';
 // ───────────────────────────────────────────────
 
 const screens = [...document.querySelectorAll('.screen')];
@@ -18,7 +18,6 @@ function nowString() {
 // 시트로 기록 전송 (실패해도 앱 흐름은 막지 않음)
 function sendRecord() {
   if (!SHEET_ENDPOINT) return;
-  // GET + URL 파라미터로 전송 (POST가 401로 막히는 환경 대비, doGet에서 처리)
   const params = new URLSearchParams({
     save: '1',
     name: state.name,
@@ -27,7 +26,16 @@ function sendRecord() {
     endTime: state.endTime
   });
   const url = SHEET_ENDPOINT + '?' + params.toString();
-  fetch(url, { method: 'GET', mode: 'no-cors' }).catch(() => {});
+  // 이미지 요청 방식: CORS·리다이렉트 제약 없이 GET 전송이 확실히 나감
+  try {
+    const img = new Image();
+    img.referrerPolicy = 'no-referrer';
+    img.src = url;
+  } catch (e) {}
+  // 백업으로 fetch도 시도 (둘 중 하나만 성공해도 기록됨)
+  try {
+    fetch(url, { method: 'GET', mode: 'no-cors', redirect: 'follow' }).catch(() => {});
+  } catch (e) {}
 }
 
 
